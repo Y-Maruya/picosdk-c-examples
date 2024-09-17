@@ -242,7 +242,7 @@ int16_t			g_trig = 0;
 uint32_t		g_trigAt = 0;
 int16_t			g_overflow = 0;
 
-char BlockFile[20]		= "block.txt";
+// char BlockFile[20]		= "block.txt";
 char DigiBlockFile[20]	= "digiblock.txt";
 char StreamFile[20]		= "stream.txt";
 
@@ -583,7 +583,7 @@ PICO_STATUS ClearDataBuffers(UNIT * unit)
 * - offset : the offset into the data buffer to start the display's slice.
 ****************************************************************************/
 struct timespec unix_time[dataOfNum];
-void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16_t etsModeSet,int datanum)
+void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16_t etsModeSet,int datanum,char * BlockFile = "block")
 {
 	uint16_t bit;
 	uint16_t bitValue;
@@ -723,8 +723,10 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 		if (mode == ANALOGUE || mode == MIXED)		// if we're doing analogue or MIXED
 		{
 			sampleCount = min(sampleCount, BUFFER_SIZE);
-			char BlockFile[35];
-			snprintf(BlockFile,38, "ch9_th180mV_%04d.txt", datanum);
+			char* BlockFile;
+			char* futter;
+			snprintf(futter,38,"%d.txt", datanum);
+			strcat(BlockFile, futter);
 			fopen_s(&fp, BlockFile, "w");
 			printf("Data is written to disk file (%s)\n", BlockFile);
 			
@@ -777,7 +779,7 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 						if (unit->channelSettings[j].enabled) 
 						{
 							fprintf(	fp,
-								"Ch%C %d %+d %d %+d",//%+d�̌���space�𑫂��ׂ����������A���������܂������Ă���̂ł��̂܂� 
+								"Ch%C %d %+d %d %+d",
 								(char)('A' + j),
 								buffers[j * 2][i],
 								adc_to_mv(buffers[j * 2][i], unit->channelSettings[PS2000A_CHANNEL_A + j].range, unit),
@@ -1386,7 +1388,7 @@ void CollectBlockEts(UNIT * unit)
 *  this function demonstrates how to collect a single block of data from the
 *  unit, when a trigger event occurs.
 ****************************************************************************/
-void CollectBlockTriggered(UNIT * unit,int datanum)
+void CollectBlockTriggered(UNIT * unit,int datanum,char* BlockFile)
 {
 	int16_t	triggerVoltage = mv_to_adc(-100-1, unit->channelSettings[PS2000A_CHANNEL_A].range, unit);
 
@@ -1436,7 +1438,7 @@ void CollectBlockTriggered(UNIT * unit,int datanum)
 	* Threshold = 10mV */
 	SetTrigger(unit, &sourceDetails, 1, &conditions, 1, &directions, &pulseWidth, 0, 0, 0, 0, 0);
 
-	BlockDataHandler(unit, "", 0, ANALOGUE, FALSE,datanum);
+	BlockDataHandler(unit, "", 0, ANALOGUE, FALSE,datanum,BlockFile);
 }
 
 /****************************************************************************
@@ -2579,8 +2581,10 @@ int32_t main(void)
 				break;
 
 			case 'T':
+				char* BlockFile;
+				scanf("%s", BlockFile);
 				for (int i = 0; i < dataOfNum; i++) {
-					CollectBlockTriggered(&unit,i);
+					CollectBlockTriggered(&unit,i,BlockFile);
 				}
 				break;
 
