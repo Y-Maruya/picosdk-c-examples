@@ -161,7 +161,7 @@ int32_t strcmpi(const char * a, const char * b)
 #define		AWG_DAC_FREQUENCY_MSO  2e6
 #define		AWG_PHASE_ACCUMULATOR  4294967296.0
 #define     dataOfNum 10000
-
+int Ndata = 0;
 int32_t cycles = 0;
 
 typedef enum
@@ -582,7 +582,7 @@ PICO_STATUS ClearDataBuffers(UNIT * unit)
 * - text : the text to display before the display of data slice
 * - offset : the offset into the data buffer to start the display's slice.
 ****************************************************************************/
-struct timespec unix_time[dataOfNum];
+struct timespec unix_time[Ndata];
 void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16_t etsModeSet,int datanum)
 {
 	uint16_t bit;
@@ -2579,7 +2579,9 @@ int32_t main(void)
 				break;
 
 			case 'T':
-				for (int i = 0; i < dataOfNum; i++) {
+				printf("How many data aquire: ");
+				scanf("%d",&Ndata);
+				for (int i = 0; i < Ndata; i++) {
 					CollectBlockTriggered(&unit,i);
 				}
 				break;
