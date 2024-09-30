@@ -160,7 +160,7 @@ int32_t strcmpi(const char * a, const char * b)
 #define		AWG_DAC_FREQUENCY      20e6
 #define		AWG_DAC_FREQUENCY_MSO  2e6
 #define		AWG_PHASE_ACCUMULATOR  4294967296.0
-#define     dataOfNum 10000
+// #define     dataOfNum 10000
 
 int32_t cycles = 0;
 
@@ -582,8 +582,7 @@ PICO_STATUS ClearDataBuffers(UNIT * unit)
 * - text : the text to display before the display of data slice
 * - offset : the offset into the data buffer to start the display's slice.
 ****************************************************************************/
-struct timespec unix_time[dataOfNum];
-void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16_t etsModeSet,int datanum,char * BlockFile = "block")
+void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16_t etsModeSet,int datanum,char * BlockFile)
 {
 	uint16_t bit;
 	uint16_t bitValue;
@@ -592,7 +591,7 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 
 	int32_t i, j;
 	int32_t timeInterval;
-	int32_t sampleCount = 5000;
+	int32_t sampleCount = 1000;
 	int32_t nPreTriggerSamples = 500;
 	int32_t maxSamples;
 	int32_t timeIndisposed;
@@ -603,7 +602,7 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	int64_t * etsTime; // Buffer for ETS time data
 
 	FILE * fp = NULL;
-	FILE * digiFp = NULL;
+	// FILE * digiFp = NULL;
 	
 	PICO_STATUS status;
 	PS2000A_RATIO_MODE ratioMode = PS2000A_RATIO_MODE_NONE;
@@ -625,21 +624,21 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	}
 
 	// Set up ETS time buffers if ETS Block mode data is being captured (only when Analogue channels are enabled)
-	if (mode == ANALOGUE && etsModeSet == TRUE)
-	{
-		etsTime = (int64_t *) calloc(sampleCount, sizeof (int64_t));   
-		status = ps2000aSetEtsTimeBuffer(unit->handle, etsTime, sampleCount);
-	}
+	// if (mode == ANALOGUE && etsModeSet == TRUE)
+	// {
+	// 	etsTime = (int64_t *) calloc(sampleCount, sizeof (int64_t));   
+	// 	status = ps2000aSetEtsTimeBuffer(unit->handle, etsTime, sampleCount);
+	// }
 
-	if (mode == DIGITAL || mode == MIXED)		// (MSO Only) Digital or MIXED
-	{
-		for (i= 0; i < unit->digitalPorts; i++) 
-		{
-			digiBuffer[i] = (int16_t*) malloc(sampleCount* sizeof(int16_t));
-			status = ps2000aSetDataBuffer(unit->handle, (int32_t) (i + PS2000A_DIGITAL_PORT0), digiBuffer[i], sampleCount, 0, ratioMode);
-			printf(status?"BlockDataHandler:ps2000aSetDataBuffer(port 0x%X) ------ 0x%08lx \n":"", i + PS2000A_DIGITAL_PORT0, status);
-		}
-	}
+	// if (mode == DIGITAL || mode == MIXED)		// (MSO Only) Digital or MIXED
+	// {
+	// 	for (i= 0; i < unit->digitalPorts; i++) 
+	// 	{
+	// 		digiBuffer[i] = (int16_t*) malloc(sampleCount* sizeof(int16_t));
+	// 		status = ps2000aSetDataBuffer(unit->handle, (int32_t) (i + PS2000A_DIGITAL_PORT0), digiBuffer[i], sampleCount, 0, ratioMode);
+	// 		printf(status?"BlockDataHandler:ps2000aSetDataBuffer(port 0x%X) ------ 0x%08lx \n":"", i + PS2000A_DIGITAL_PORT0, status);
+	// 	}
+	// }
 
 	/*  Validate the current timebase index, and find the maximum number of samples and the time interval (in nanoseconds)*/
 	while (ps2000aGetTimebase(unit->handle, timebase, sampleCount, &timeInterval, oversample, &maxSamples, 0) != PICO_OK)
@@ -647,17 +646,17 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 		timebase++;
 	}
 
-	if (!etsModeSet)
-	{
-		printf("\nTimebase: %lu  SampleInterval: %ldnS  oversample: %hd\n", timebase, timeInterval, oversample);
-	}
+	// if (!etsModeSet)
+	// {
+	// 	printf("\nTimebase: %lu  SampleInterval: %ldnS  oversample: %hd\n", timebase, timeInterval, oversample);
+	// }
 
 	/* Start it collecting, then wait for completion*/
 	g_ready = FALSE;
 	status = ps2000aRunBlock(unit->handle, nPreTriggerSamples, sampleCount-nPreTriggerSamples, timebase, oversample,	&timeIndisposed, 0, CallBackBlock, NULL);
 	printf(status?"BlockDataHandler:ps2000aRunBlock ------ 0x%08lx \n":"", status);
 
-	printf("Waiting for trigger...Press a key to abort\n");
+	// printf("Waiting for trigger...Press a key to abort\n");
 
 	while (!g_ready && !_kbhit())
 	{
@@ -665,8 +664,9 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	}
 
 	if (g_ready) 
-	{
-		timespec_get(&unix_time[datanum], TIME_UTC);
+	{	
+		struct timeval unix_time;
+		gettimeofday(&unix_time, NULL);
 		status = ps2000aGetValues(unit->handle, 0, (uint32_t*) &sampleCount, 10, ratioMode, 0, NULL);
 		printf(status?"BlockDataHandler:ps2000aGetValues ------ 0x%08lx \n":"", status);
 
@@ -687,11 +687,6 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 
 			printf("\n");
 		}*/
-
-		if (mode == DIGITAL || mode == MIXED)	// if we're doing digital or MIXED
-		{
-			printf("Digital\n");
-		}
 
 		printf("\n");
 		/*
@@ -723,12 +718,13 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 		if (mode == ANALOGUE || mode == MIXED)		// if we're doing analogue or MIXED
 		{
 			sampleCount = min(sampleCount, BUFFER_SIZE);
-			char* BlockFile;
-			char* futter;
-			snprintf(futter,38,"%d.txt", datanum);
-			strcat(BlockFile, futter);
-			fopen_s(&fp, BlockFile, "w");
-			printf("Data is written to disk file (%s)\n", BlockFile);
+			char futter[256];
+			char BlockFiletmp[256];
+			strcpy(BlockFiletmp, BlockFile);
+			snprintf(futter,sizeof(futter),"/%d.txt", datanum);
+			strcat(BlockFiletmp, futter);
+			fopen_s(&fp, BlockFiletmp, "w");
+			// printf("Data is written to disk file (%s)\n", BlockFiletmp);
 			
 			if (fp != NULL)
 			{
@@ -743,48 +739,28 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 				}*/
 
 				/*fprintf(fp, "Results shown for each of the %d Channels are......\n", unit->channelCount);*/
-				fprintf(fp, "nSample %d \n", sampleCount);
-				fprintf(fp, "TimeStump(s,ns) %d %d \n", unix_time[datanum].tv_sec , unix_time[datanum].tv_nsec);
+				// fprintf(fp, "nSample %d \n", sampleCount);
+				fprintf(fp, "TimeStump(s,us) %d %d \n", unix_time.tv_sec , unix_time.tv_usec);
 				/*fprintf(fp, "Maximum Aggregated value ADC Count & mV, Minimum Aggregated value ADC Count & mV\n\n");*/
-
-				if (etsModeSet)
-				{
-					fprintf(fp, "Time (fs) ");
-				}
-				else
-				{
-					fprintf(fp, "Time(ns)  ");
-				}
-
-				for (i = 0; i < unit->channelCount; i++) 
-				{
-					fprintf(fp," Ch   Max ADC  Max mV   Min ADC  Min mV  ");
-				}
-
-				fprintf(fp, "\n");
 
 				for (i = 0; i < sampleCount; i++) 
 				{
-					if (mode == ANALOGUE && etsModeSet == TRUE)
-					{
-						fprintf(fp, "%d ", etsTime[i]);
-					}
-					else
-					{
-						fprintf(fp, "%d ", g_times[0] + (int32_t)(i * timeInterval));
-					}
+					// if (mode == ANALOGUE && etsModeSet == TRUE)
+					// {
+					// 	fprintf(fp, "%d ", etsTime[i]);
+					// }
+					// else
+					// {
+					// 	fprintf(fp, "%d ", g_times[0] + (int32_t)(i * timeInterval));
+					// }
 
 					for (j = 0; j < unit->channelCount; j++) 
 					{
 						if (unit->channelSettings[j].enabled) 
 						{
 							fprintf(	fp,
-								"Ch%C %d %+d %d %+d",
-								(char)('A' + j),
-								buffers[j * 2][i],
-								adc_to_mv(buffers[j * 2][i], unit->channelSettings[PS2000A_CHANNEL_A + j].range, unit),
-								buffers[j * 2 + 1][i],
-								adc_to_mv(buffers[j * 2 + 1][i], unit->channelSettings[PS2000A_CHANNEL_A + j].range, unit));
+								"%d ",
+								buffers[j * 2][i]);
 						}
 					}
 					fprintf(fp, "\n");
@@ -796,41 +772,6 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 					"Please ensure that you have permission to access.\n");
 			}
 		}
-
-		if (mode == DIGITAL || mode == MIXED)
-		{
-			fopen_s(&digiFp, DigiBlockFile, "w");
-
-			if (digiFp != NULL)
-			{
-				fprintf(digiFp, "Block Digital Data log.\n");
-				fprintf(digiFp,"Results shown for D15 - D8 and D7 to D0.\n\n");
-
-				for(i = 0; i < sampleCount; i++)
-				{
-					digiValue = 0x00ff & digiBuffer[1][i];	// Mask Port 1 values to get lower 8 bits
-					digiValue <<= 8;						// Shift by 8 bits to place in upper 8 bits of 16-bit word
-					digiValue |= digiBuffer[0][i];			// Mask Port 0 values to get lower 8 bits
-
-					for (bit = 0; bit < 16; bit++)
-					{
-						// Shift value (32768 - binary 1000 0000 0000 0000), AND with value to get 1 or 0 for channel
-						// Order will be D15 to D8, then D7 to D0
-
-						bitValue = (0x8000 >> bit) & digiValue? 1 : 0;
-						fprintf(digiFp, "%u ", bitValue);
-					}
-
-					fprintf(digiFp, "\n");
-				}
-			}
-			else
-			{
-				printf(	"Cannot open the file digiblock.txt for writing.\n"
-					"Please ensure that you have permission to access.\n");
-			}
-		}
-
 	} 
 	else 
 	{
@@ -846,10 +787,6 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 		fclose(fp);
 	}
 
-	if (digiFp != NULL)
-	{
-		fclose(digiFp);
-	}
 
 	if (mode == ANALOGUE || mode == MIXED)		// Only if we allocated these buffers
 	{
@@ -868,13 +805,6 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 		free(etsTime);
 	}
 
-	if (mode == DIGITAL || mode == MIXED)		// Only if we allocated these buffers
-	{
-		for (i = 0; i < unit->digitalPorts; i++) 
-		{
-			free(digiBuffer[i]);
-		}
-	}
 
 	ClearDataBuffers(unit);
 }
@@ -1307,7 +1237,7 @@ void CollectBlockImmediate(UNIT * unit)
 	/* Trigger disabled	*/
 	SetTrigger(unit, NULL, 0, NULL, 0, &directions, &pulseWidth, 0, 0, 0, 0, 0);
 
-	BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, ANALOGUE, FALSE,0);
+	BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, ANALOGUE, FALSE,0,"block.txt");
 }
 
 /****************************************************************************
@@ -1376,7 +1306,7 @@ void CollectBlockEts(UNIT * unit)
 
 	printf("ETS Sample Time is: %ld picoseconds\n", ets_sampletime);
 
-	BlockDataHandler(unit, "Ten readings after trigger\n", BUFFER_SIZE / 10 - 5, ANALOGUE, etsModeSet,0); // 10% of data is pre-trigger
+	BlockDataHandler(unit, "Ten readings after trigger\n", BUFFER_SIZE / 10 - 5, ANALOGUE, etsModeSet,0,"block.txt"); // 10% of data is pre-trigger
 
 	status = ps2000aSetEts(unit->handle, PS2000A_ETS_OFF, 20, 4, &ets_sampletime);
 
@@ -2226,7 +2156,7 @@ void ANDAnalogueDigitalTriggered(UNIT * unit)
 
 	if (status == PICO_OK)
 	{
-		BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, MIXED, FALSE,0);
+		BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, MIXED, FALSE,0,"block.txt");
 	}
 
 	DisableAnalogue(unit);			// Disable Analogue ports when finished;
@@ -2332,7 +2262,7 @@ void ORAnalogueDigitalTriggered(UNIT * unit)
 	if (status == PICO_OK)
 	{
 
-		BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, MIXED, FALSE,0);
+		BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, MIXED, FALSE,0,"block.txt");
 	}
 
 	DisableAnalogue(unit);	// Disable Analogue ports when finished;
@@ -2384,7 +2314,7 @@ void DigitalBlockTriggered(UNIT * unit)
 	{
 		printf("Press a key to start...\n");
 		_getch();
-		BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, DIGITAL, FALSE,0);
+		BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, DIGITAL, FALSE,0,"block.txt");
 	}
 }
 
@@ -2412,7 +2342,7 @@ void DigitalBlockImmediate(UNIT *unit)
 	printf("Press a key to start...\n");
 	_getch();
 
-	BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, DIGITAL, FALSE,0);
+	BlockDataHandler(unit, "\nFirst 10 readings:\n", 0, DIGITAL, FALSE,0,"block.txt");
 }
 
 
@@ -2581,10 +2511,21 @@ int32_t main(void)
 				break;
 
 			case 'T':
-				char* BlockFile;
-				scanf("%s", BlockFile);
+				char BlockFile[256]={0};
+				printf("Please input the file name:");
+				scanf("%255s", BlockFile);
+				int dataOfNum;
+				printf("Please input the number of data:");
+				scanf("%d", &dataOfNum);
 				for (int i = 0; i < dataOfNum; i++) {
+					struct timeval tv;
+					gettimeofday(&tv, NULL);
+					// printf("start\n");
+					printf("startTime: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
 					CollectBlockTriggered(&unit,i,BlockFile);
+					gettimeofday(&tv, NULL);
+					printf("endTime: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
+					// printf("end\n");
 				}
 				break;
 
