@@ -597,7 +597,7 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	int32_t timeIndisposed;
 
 	int16_t * buffers[PS2000A_MAX_CHANNEL_BUFFERS];
-	int16_t * digiBuffer[PS2000A_MAX_DIGITAL_PORTS];
+	// int16_t * digiBuffer[PS2000A_MAX_DIGITAL_PORTS];
 
 	int64_t * etsTime; // Buffer for ETS time data
 
@@ -645,7 +645,6 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	{
 		timebase++;
 	}
-
 	// if (!etsModeSet)
 	// {
 	// 	printf("\nTimebase: %lu  SampleInterval: %ldnS  oversample: %hd\n", timebase, timeInterval, oversample);
@@ -657,7 +656,9 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	printf(status?"BlockDataHandler:ps2000aRunBlock ------ 0x%08lx \n":"", status);
 
 	// printf("Waiting for trigger...Press a key to abort\n");
-
+	struct timeval unix_time_1;
+	gettimeofday(&unix_time_1, NULL);
+	printf("Waiting start time %d %d \n", unix_time_1.tv_sec , unix_time_1.tv_usec);
 	while (!g_ready && !_kbhit())
 	{
 		Sleep(0);
@@ -1440,11 +1441,11 @@ void CollectRapidBlock(UNIT * unit)
 	SetTrigger(unit, &sourceDetails, 1, &conditions, 1, &directions, &pulseWidth, 0, 0, 0, 0, 0);
 
 	// Set the number of captures
-	nCaptures = 10;
+	nCaptures = 10000;
 
 	// Find the maximum number of segments for the device
 	status = ps2000aGetMaxSegments(unit->handle, &maxSegments);
-
+	printf("Max Segments: %d\n", maxSegments);
 	if (nCaptures > maxSegments)
 	{
 		nCaptures = maxSegments;
@@ -1452,7 +1453,7 @@ void CollectRapidBlock(UNIT * unit)
 
 	// Segment the memory
 	status = ps2000aMemorySegments(unit->handle, nCaptures, &nMaxSamples);
-
+	printf("Max Samples: %d\n", nMaxSamples);
 	// Set the number of captures
 	status = ps2000aSetNoOfCaptures(unit->handle, nCaptures);
 
