@@ -582,6 +582,38 @@ PICO_STATUS ClearDataBuffers(UNIT * unit)
 * - text : the text to display before the display of data slice
 * - offset : the offset into the data buffer to start the display's slice.
 ****************************************************************************/
+int16_t * totalBuffers[PS2000A_MAX_CHANNEL_BUFFERS];
+void totalBuffers_malloc(UNIT * unit)
+{
+	u_int32_t segmentIndex = 0;
+	PICO_STATUS status;
+	PS2000A_RATIO_MODE ratioMode = PS2000A_RATIO_MODE_NONE;
+	int32_t i;
+	int32_t sampleCount = 1000;
+	for (i = 0; i < unit->channelCount; i++) 
+	{
+		if (unit->channelSettings[i].enabled)
+		{
+			totalBuffers[i * 2] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+			totalBuffers[i * 2 + 1] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+			status = ps2000aSetDataBuffers(unit->handle, (int32_t) i, totalBuffers[i * 2], totalBuffers[i * 2 + 1], sampleCount, segmentIndex, ratioMode);
+			printf(status?"BlockDataHandler:ps2000aSetDataBuffers(channel %d) ------ 0x%08lx \n":"", i, status);
+			
+		}
+	}
+}
+void totalBudders_free(UNIT * unit)
+{
+	int32_t i;
+	for (i = 0; i < unit->channelCount; i++) 
+	{
+		if (unit->channelSettings[i].enabled)
+		{
+			free(totalBuffers[i * 2]);
+			free(totalBuffers[i * 2 + 1]);
+		}
+	}
+}
 void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16_t etsModeSet,int datanum,char * BlockFile)
 {
 	uint16_t bit;
@@ -596,7 +628,7 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	int32_t maxSamples;
 	int32_t timeIndisposed;
 
-	int16_t * buffers[PS2000A_MAX_CHANNEL_BUFFERS];
+	// int16_t * buffers[PS2000A_MAX_CHANNEL_BUFFERS];
 	// int16_t * digiBuffer[PS2000A_MAX_DIGITAL_PORTS];
 
 	int64_t * etsTime; // Buffer for ETS time data
@@ -613,10 +645,10 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 		{
 			if (unit->channelSettings[i].enabled)
 			{
-				buffers[i * 2] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
-				buffers[i * 2 + 1] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+				// totalBuffers[i * 2] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+				// totalBuffers[i * 2 + 1] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
 				
-				status = ps2000aSetDataBuffers(unit->handle, (int32_t) i, buffers[i * 2], buffers[i * 2 + 1], sampleCount, segmentIndex, ratioMode);
+				status = ps2000aSetDataBuffers(unit->handle, (int32_t) i, totalBuffers[i * 2], totalBuffers[i * 2 + 1], sampleCount, segmentIndex, ratioMode);
 
 				printf(status?"BlockDataHandler:ps2000aSetDataBuffers(channel %d) ------ 0x%08lx \n":"", i, status);
 			}
@@ -761,7 +793,7 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 						{
 							fprintf(	fp,
 								"%d ",
-								buffers[j * 2][i]);
+								totalBuffers[j * 2][i]);
 						}
 					}
 					fprintf(fp, "\n");
@@ -789,17 +821,17 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	}
 
 
-	if (mode == ANALOGUE || mode == MIXED)		// Only if we allocated these buffers
-	{
-		for (i = 0; i < unit->channelCount; i++) 
-		{
-			if (unit->channelSettings[i].enabled)
-			{
-				free(buffers[i * 2]);
-				free(buffers[i * 2 + 1]);
-			}
-		}
-	}
+	// if (mode == ANALOGUE || mode == MIXED)		// Only if we allocated these buffers
+	// {
+	// 	for (i = 0; i < unit->channelCount; i++) 
+	// 	{
+	// 		if (unit->channelSettings[i].enabled)
+	// 		{
+	// 			free(buffers[i * 2]);
+	// 			free(buffers[i * 2 + 1]);
+	// 		}
+	// 	}
+	// }
 
 	if (mode == ANALOGUE && etsModeSet == TRUE)	// Only if we allocated this buffers
 	{
@@ -2514,10 +2546,11 @@ int32_t main(void)
 			case 'T':
 				char BlockFile[256]={0};
 				printf("Please input the file name:");
-				scanf("%255s", BlockFile);
+				scanf("%255s", BlockFile);int32_t sampleCount = 1000;
 				int dataOfNum;
 				printf("Please input the number of data:");
 				scanf("%d", &dataOfNum);
+				totalBuffers_malloc(&unit);
 				for (int i = 0; i < dataOfNum; i++) {
 					struct timeval tv;
 					gettimeofday(&tv, NULL);
@@ -2528,6 +2561,7 @@ int32_t main(void)
 					printf("endTime: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
 					// printf("end\n");
 				}
+				totalBudders_free(&unit);
 				break;
 
 			case 'R':
