@@ -583,37 +583,8 @@ PICO_STATUS ClearDataBuffers(UNIT * unit)
 * - offset : the offset into the data buffer to start the display's slice.
 ****************************************************************************/
 int16_t * totalBuffers[PS2000A_MAX_CHANNEL_BUFFERS];
-void totalBuffers_malloc(UNIT * unit)
-{
-	u_int32_t segmentIndex = 0;
-	PICO_STATUS status;
-	PS2000A_RATIO_MODE ratioMode = PS2000A_RATIO_MODE_NONE;
-	int32_t i;
-	int32_t sampleCount = 1000;
-	for (i = 0; i < unit->channelCount; i++) 
-	{
-		if (unit->channelSettings[i].enabled)
-		{
-			totalBuffers[i * 2] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
-			totalBuffers[i * 2 + 1] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
-			status = ps2000aSetDataBuffers(unit->handle, (int32_t) i, totalBuffers[i * 2], totalBuffers[i * 2 + 1], sampleCount, segmentIndex, ratioMode);
-			printf(status?"BlockDataHandler:ps2000aSetDataBuffers(channel %d) ------ 0x%08lx \n":"", i, status);
-			
-		}
-	}
-}
-void totalBudders_free(UNIT * unit)
-{
-	int32_t i;
-	for (i = 0; i < unit->channelCount; i++) 
-	{
-		if (unit->channelSettings[i].enabled)
-		{
-			free(totalBuffers[i * 2]);
-			free(totalBuffers[i * 2 + 1]);
-		}
-	}
-}
+
+// struct timeval time_vec[dataOfNum];
 void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16_t etsModeSet,int datanum,char * BlockFile)
 {
 	uint16_t bit;
@@ -623,8 +594,8 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 
 	int32_t i, j;
 	int32_t timeInterval;
-	int32_t sampleCount = 1000;
-	int32_t nPreTriggerSamples = 500;
+	int32_t sampleCount = 4000;
+	int32_t nPreTriggerSamples = 2000;
 	int32_t maxSamples;
 	int32_t timeIndisposed;
 
@@ -639,21 +610,21 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	PICO_STATUS status;
 	PS2000A_RATIO_MODE ratioMode = PS2000A_RATIO_MODE_NONE;
 	
-	if (mode == ANALOGUE || mode == MIXED)		// Analogue or (MSO Only) MIXED 
-	{
-		for (i = 0; i < unit->channelCount; i++) 
-		{
-			if (unit->channelSettings[i].enabled)
-			{
-				// totalBuffers[i * 2] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
-				// totalBuffers[i * 2 + 1] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+	// if (mode == ANALOGUE || mode == MIXED)		// Analogue or (MSO Only) MIXED 
+	// {
+	// 	for (i = 0; i < unit->channelCount; i++) 
+	// 	{
+	// 		if (unit->channelSettings[i].enabled)
+	// 		{
+	// // 			// totalBuffers[i * 2] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+	// // 			// totalBuffers[i * 2 + 1] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
 				
-				status = ps2000aSetDataBuffers(unit->handle, (int32_t) i, totalBuffers[i * 2], totalBuffers[i * 2 + 1], sampleCount, segmentIndex, ratioMode);
+	// 			status = ps2000aSetDataBuffers(unit->handle, (int32_t) i, totalBuffers[i * 2], totalBuffers[i * 2 + 1], sampleCount, segmentIndex, ratioMode);
 
-				printf(status?"BlockDataHandler:ps2000aSetDataBuffers(channel %d) ------ 0x%08lx \n":"", i, status);
-			}
-		}
-	}
+	// 			printf(status?"BlockDataHandler:ps2000aSetDataBuffers(channel %d) ------ 0x%08lx \n":"", i, status);
+	// 		}
+	// 	}
+	// }
 
 	// Set up ETS time buffers if ETS Block mode data is being captured (only when Analogue channels are enabled)
 	// if (mode == ANALOGUE && etsModeSet == TRUE)
@@ -673,10 +644,10 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	// }
 
 	/*  Validate the current timebase index, and find the maximum number of samples and the time interval (in nanoseconds)*/
-	while (ps2000aGetTimebase(unit->handle, timebase, sampleCount, &timeInterval, oversample, &maxSamples, 0) != PICO_OK)
-	{
-		timebase++;
-	}
+	// while (ps2000aGetTimebase(unit->handle, timebase, sampleCount, &timeInterval, oversample, &maxSamples, 0) != PICO_OK)
+	// {
+	// 	timebase++;
+	// }
 	// if (!etsModeSet)
 	// {
 	// 	printf("\nTimebase: %lu  SampleInterval: %ldnS  oversample: %hd\n", timebase, timeInterval, oversample);
@@ -684,27 +655,27 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 
 	/* Start it collecting, then wait for completion*/
 	g_ready = FALSE;
+	struct timeval unix_time;
+	gettimeofday(&unix_time, NULL);
+	printf("Waiting start time %d %d \n", unix_time.tv_sec , unix_time.tv_usec);
 	status = ps2000aRunBlock(unit->handle, nPreTriggerSamples, sampleCount-nPreTriggerSamples, timebase, oversample,	&timeIndisposed, 0, CallBackBlock, NULL);
 	printf(status?"BlockDataHandler:ps2000aRunBlock ------ 0x%08lx \n":"", status);
 
 	// printf("Waiting for trigger...Press a key to abort\n");
-	struct timeval unix_time_1;
-	gettimeofday(&unix_time_1, NULL);
-	printf("Waiting start time %d %d \n", unix_time_1.tv_sec , unix_time_1.tv_usec);
+	gettimeofday(&unix_time, NULL);
+	printf("Waiting start time %d %d \n", unix_time.tv_sec , unix_time.tv_usec);
 	while (!g_ready && !_kbhit())
 	{
 		Sleep(0);
 	}
-
 	if (g_ready) 
 	{	
-		struct timeval unix_time;
 		gettimeofday(&unix_time, NULL);
 		status = ps2000aGetValues(unit->handle, 0, (uint32_t*) &sampleCount, 10, ratioMode, 0, NULL);
 		printf(status?"BlockDataHandler:ps2000aGetValues ------ 0x%08lx \n":"", status);
 
 		/* Print out the first 10 readings, converting the readings to mV if required */
-		printf("%s\n",text);
+		// printf("%s\n",text);
 		/*
 		if (mode == ANALOGUE || mode == MIXED)		// if we're doing analogue or MIXED
 		{
@@ -721,7 +692,7 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 			printf("\n");
 		}*/
 
-		printf("\n");
+		// printf("\n");
 		/*
 		for (i = offset; i < offset+10; i++) 
 		{
@@ -812,8 +783,8 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 		_getch();
 	}
 
-	status = ps2000aStop(unit->handle);
-	printf(status?"BlockDataHandler:ps2000aStop ------ 0x%08lx \n":"", status);
+	// status = ps2000aStop(unit->handle);
+	// printf(status?"BlockDataHandler:ps2000aStop ------ 0x%08lx \n":"", status);
 
 	if (fp != NULL)
 	{
@@ -833,13 +804,13 @@ void BlockDataHandler(UNIT * unit, char * text, int32_t offset, MODE mode, int16
 	// 	}
 	// }
 
-	if (mode == ANALOGUE && etsModeSet == TRUE)	// Only if we allocated this buffers
-	{
-		free(etsTime);
-	}
+	// if (mode == ANALOGUE && etsModeSet == TRUE)	// Only if we allocated this buffers
+	// {
+	// 	free(etsTime);
+	// }
 
 
-	ClearDataBuffers(unit);
+	// ClearDataBuffers(unit);
 }
 
 /****************************************************************************
@@ -1345,14 +1316,24 @@ void CollectBlockEts(UNIT * unit)
 
 	etsModeSet = FALSE;
 }
-
-/****************************************************************************
-* CollectBlockTriggered
-*  this function demonstrates how to collect a single block of data from the
-*  unit, when a trigger event occurs.
-****************************************************************************/
-void CollectBlockTriggered(UNIT * unit,int datanum,char* BlockFile)
+void totalBuffers_malloc(UNIT * unit)
 {
+	uint16_t bit;
+	uint16_t bitValue;
+	uint16_t digiValue;
+	uint32_t segmentIndex = 0;
+
+	// int32_t i, j;
+	int32_t timeInterval;
+	// int32_t sampleCount = 512;
+	int32_t nPreTriggerSamples = 2000;
+	int32_t maxSamples;
+	int32_t timeIndisposed;
+	// u_int32_t segmentIndex = 0;
+	PICO_STATUS status;
+	PS2000A_RATIO_MODE ratioMode = PS2000A_RATIO_MODE_NONE;
+	int32_t i;
+	int32_t sampleCount = 4000;
 	int16_t	triggerVoltage = mv_to_adc(-100-1, unit->channelSettings[PS2000A_CHANNEL_A].range, unit);
 
 	PS2000A_TRIGGER_CHANNEL_PROPERTIES sourceDetails = {	triggerVoltage,
@@ -1382,24 +1363,100 @@ void CollectBlockTriggered(UNIT * unit,int datanum,char* BlockFile)
 
 	PWQ pulseWidth;
 	memset(&pulseWidth, 0, sizeof(PWQ));
-
-	if (datanum == 0){
-		printf("Collects when value rises past %d", scaleVoltages ?
-		adc_to_mv(sourceDetails.thresholdUpper, unit->channelSettings[PS2000A_CHANNEL_A].range, unit)	// If scaleVoltages, print mV value
-		: sourceDetails.thresholdUpper);																// else print ADC Count
-		printf(scaleVoltages ? "mV\n" : "ADC Counts\n");
-	}
-	if (datanum == 0) {
+	printf("Collects when value rises past %d", scaleVoltages ?
+	adc_to_mv(sourceDetails.thresholdUpper, unit->channelSettings[PS2000A_CHANNEL_A].range, unit)	// If scaleVoltages, print mV value
+	: sourceDetails.thresholdUpper);																// else print ADC Count
+	printf(scaleVoltages ? "mV\n" : "ADC Counts\n");
 	printf("Press a key to start...\n");
 	_getch();
-	}
-
+	
 	SetDefaults(unit);
 
 	/* Trigger enabled
 	* Rising edge
 	* Threshold = 10mV */
 	SetTrigger(unit, &sourceDetails, 1, &conditions, 1, &directions, &pulseWidth, 0, 0, 0, 0, 0);
+
+
+	for (i = 0; i < unit->channelCount; i++) 
+	{
+		if (unit->channelSettings[i].enabled)
+		{
+			totalBuffers[i * 2] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+			totalBuffers[i * 2 + 1] = (int16_t*) malloc(sampleCount * sizeof(int16_t));
+			status = ps2000aSetDataBuffers(unit->handle, (int32_t) i, totalBuffers[i * 2], totalBuffers[i * 2 + 1], sampleCount, segmentIndex, ratioMode);
+			printf(status?"BlockDataHandler:ps2000aSetDataBuffers(channel %d) ------ 0x%08lx \n":"", i, status);
+		}
+	}
+	// status = ps2000aRunBlock(unit->handle, nPreTriggerSamples, sampleCount-nPreTriggerSamples, timebase, oversample,	&timeIndisposed, 0, CallBackBlock, NULL);
+	// printf(status?"BlockDataHandler:ps2000aRunBlock ------ 0x%08lx \n":"", status);
+}
+void totalBudders_free(UNIT * unit)
+{
+	int32_t i;
+	for (i = 0; i < unit->channelCount; i++) 
+	{
+		if (unit->channelSettings[i].enabled)
+		{
+			free(totalBuffers[i * 2]);
+			free(totalBuffers[i * 2 + 1]);
+		}
+	}
+}
+/****************************************************************************
+* CollectBlockTriggered
+*  this function demonstrates how to collect a single block of data from the
+*  unit, when a trigger event occurs.
+****************************************************************************/
+void CollectBlockTriggered(UNIT * unit,int datanum,char* BlockFile)
+{
+	// int16_t	triggerVoltage = mv_to_adc(-100-1, unit->channelSettings[PS2000A_CHANNEL_A].range, unit);
+
+	// PS2000A_TRIGGER_CHANNEL_PROPERTIES sourceDetails = {	triggerVoltage,
+	// 	256 * 10,
+	// 	triggerVoltage,
+	// 	256 * 10,
+	// 	PS2000A_CHANNEL_A,
+	// 	PS2000A_LEVEL};
+
+	// PS2000A_TRIGGER_CONDITIONS conditions = {	PS2000A_CONDITION_TRUE,				// Channel A
+	// 	PS2000A_CONDITION_DONT_CARE,		// Channel B 
+	// 	PS2000A_CONDITION_DONT_CARE,		// Channel C
+	// 	PS2000A_CONDITION_DONT_CARE,		// Channel D
+	// 	PS2000A_CONDITION_DONT_CARE,		// external
+	// 	PS2000A_CONDITION_DONT_CARE,		// aux
+	// 	PS2000A_CONDITION_DONT_CARE,		// PWQ
+	// 	PS2000A_CONDITION_DONT_CARE};		// digital
+
+
+
+	// TRIGGER_DIRECTIONS directions = {	PS2000A_RISING,			// Channel A
+	// 	PS2000A_NONE,			// Channel B
+	// 	PS2000A_NONE,			// Channel C
+	// 	PS2000A_NONE,			// Channel D
+	// 	PS2000A_NONE,			// ext
+	// 	PS2000A_NONE };			// aux
+
+	// PWQ pulseWidth;
+	// memset(&pulseWidth, 0, sizeof(PWQ));
+
+	// if (datanum == 0){
+	// 	printf("Collects when value rises past %d", scaleVoltages ?
+	// 	adc_to_mv(sourceDetails.thresholdUpper, unit->channelSettings[PS2000A_CHANNEL_A].range, unit)	// If scaleVoltages, print mV value
+	// 	: sourceDetails.thresholdUpper);																// else print ADC Count
+	// 	printf(scaleVoltages ? "mV\n" : "ADC Counts\n");
+	// }
+	// if (datanum == 0) {
+	// printf("Press a key to start...\n");
+	// _getch();
+	// }
+
+	// SetDefaults(unit);
+
+	// /* Trigger enabled
+	// * Rising edge
+	// * Threshold = 10mV */
+	// SetTrigger(unit, &sourceDetails, 1, &conditions, 1, &directions, &pulseWidth, 0, 0, 0, 0, 0);
 
 	BlockDataHandler(unit, "", 0, ANALOGUE, FALSE,datanum,BlockFile);
 }
@@ -2546,7 +2603,7 @@ int32_t main(void)
 			case 'T':
 				char BlockFile[256]={0};
 				printf("Please input the file name:");
-				scanf("%255s", BlockFile);int32_t sampleCount = 1000;
+				scanf("%255s", BlockFile);
 				int dataOfNum;
 				printf("Please input the number of data:");
 				scanf("%d", &dataOfNum);
